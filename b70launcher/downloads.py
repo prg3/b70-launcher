@@ -24,6 +24,7 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 import time
 import urllib.error
 import urllib.parse
@@ -470,9 +471,23 @@ def _checked_dest(ddir, name):
     return dest
 
 
+def _hf_cli_download(repo, dest_dir, files, revision):
+    env = os.environ.copy()
+    token = hf_token()
+    if token:
+        env["HF_TOKEN"] = token
+    cmd = ["hf", "download", repo, "--local-dir", str(dest_dir)]
+    if revision:
+        cmd += ["--revision", revision]
+    cmd += ["--local-files"] + files
+    # hf CLI streams its own progress; we run it synchronously
+    subprocess.run(cmd, env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def download_worker(did, model, engine):
     entry = DOWNLOADS[did]
     repo_url = None
+    use_hf_cli = bool(catalog.SETTINGS.get("use_hf_cli", False))
     try:
         with LOCK:
             entry["state"] = "resolving"
@@ -527,25 +542,54 @@ def download_worker(did, model, engine):
                 with LOCK:
                     entry["note"] = entry_note
             ddir.mkdir(parents=True, exist_ok=True)
-            for w in wanted:
+            if use_hf_cli:
+                # Use hf CLI for the whole group
                 repo_url = f"{HF}/{repo}"
-                dest = _checked_dest(ddir, w)
-                if dest.exists():
-                    if files.get(w) and dest.stat().st_size == files[w]:
+                # Skip files already present with correct size
+                missing = []
+                for w in wanted:
+                    dest = _checked_dest(ddir, w)
+                    if dest.exists() and files.get(w) and dest.stat().st_size == files[w]:
                         with LOCK:
-                            entry["files_done"] += 1  # counted in done/resumed_bytes above
+                            entry["files_done"] += 1
                         continue
-                    raise FileExistsError(f"Existing artifact has unknown or mismatched size; move it aside manually: {dest}")
-                with LOCK:
-                    entry["file"] = w
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                url = f"{HF}/{repo}/resolve/{urllib.parse.quote(dl.get('revision') or 'main', safe='')}/{urllib.parse.quote(w)}"
-                _download_file(url, dest, entry)
-                if files.get(w) and dest.stat().st_size != files[w]:
-                    raise ValueError(f"size mismatch after download ({w}): got "
-                                     f"{dest.stat().st_size}, expected {files[w]}")
-                with LOCK:
-                    entry["files_done"] += 1
+                    if dest.exists():
+                        raise FileExistsError(f"Existing artifact has unknown or mismatched size; move it aside manually: {dest}")
+                    missing.append(w)
+                if missing:
+                    with LOCK:
+                        entry["file"] = missing[0]
+                    try:
+                        _hf_cli_download(repo, ddir, missing, dl.get('revision'))
+                    except subprocess.CalledProcessError as e:
+                        raise RuntimeError(f"hf CLI download failed for {repo}: {e}")
+                    for w in missing:
+                        dest = _checked_dest(ddir, w)
+                        if files.get(w) and dest.stat().st_size != files[w]:
+                            raise ValueError(f"size mismatch after download ({w}): got "
+                                             f"{dest.stat().st_size}, expected {files[w]}")
+                        with LOCK:
+                            entry["files_done"] += 1
+            else:
+                for w in wanted:
+                    repo_url = f"{HF}/{repo}"
+                    dest = _checked_dest(ddir, w)
+                    if dest.exists():
+                        if files.get(w) and dest.stat().st_size == files[w]:
+                            with LOCK:
+                                entry["files_done"] += 1  # counted in done/resumed_bytes above
+                            continue
+                        raise FileExistsError(f"Existing artifact has unknown or mismatched size; move it aside manually: {dest}")
+                    with LOCK:
+                        entry["file"] = w
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    url = f"{HF}/{repo}/resolve/{urllib.parse.quote(dl.get('revision') or 'main', safe='')}/{urllib.parse.quote(w)}"
+                    _download_file(url, dest, entry)
+                    if files.get(w) and dest.stat().st_size != files[w]:
+                        raise ValueError(f"size mismatch after download ({w}): got "
+                                         f"{dest.stat().st_size}, expected {files[w]}")
+                    with LOCK:
+                        entry["files_done"] += 1
         _finish(entry, "done", pct=100, eta=0, file=None)
         scan.start_scan_async(force=True)
     except InterruptedError:

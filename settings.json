@@ -12,6 +12,7 @@
   "strata_root": "",
   "strata_data": "",
   "xestrata_root": "",
+  "use_hf_cli": false,
   "pcie_links": {},
   "vllm_kv_options": [
     "recipe default",

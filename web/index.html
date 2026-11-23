@@ -538,6 +538,14 @@ button.stop:hover:not(:disabled){background:var(--err);color:#fff;border-color:v
         <p class="hint" id="gpu-hint"></p>
       </div>
       <div class="field">
+        <label for="instances">Instances</label>
+        <select id="instances">
+          <option value="1">1</option>
+          <option value="2">2</option>
+        </select>
+        <p class="hint" id="instances-hint">Run the same model multiple times on different GPUs.</p>
+      </div>
+      <div class="field">
         <label for="port">Server port</label>
         <input id="port" type="number" min="1" max="65535" value="8000">
       </div>
@@ -725,8 +733,10 @@ function dlLine(dl){if(dl.state!=='downloading')return dl.state==='queued'?'Wait
   return parts.join(' · ');}
 const dlFile=dl=>dl.file?`File ${(dl.files_done||0)+1} of ${dl.files_total||1}: ${dl.file}`:'';
 const recipeKey=()=>`${S.model}:${S.engine}`;
-function cfg(){const g=$('gpu').value;const out={model_id:S.model,engine:S.engine,port:Number($('port').value),
-  ctx:Number($('context').value),kv:$('kv').value,prefill:$('prefill').value,cache:$('cache').value,gpus:g?g.split(',').map(Number):[],
+function cfg(){const g=$('gpu').value;const inst=Number($('instances')?.value||1);let gpus=g?g.split(',').map(Number):[];
+if(inst>1&&gpus.length===1){gpus=[...Array(inst).keys()];}
+const out={model_id:S.model,engine:S.engine,port:Number($('port').value),
+  ctx:Number($('context').value),kv:$('kv').value,prefill:$('prefill').value,cache:$('cache').value,gpus,
   slots:Number($('slots').value)||1,mtp:$('mtp').checked,extra:$('extra').value,
   extra_env:$('extra-env').value,harness:$('client').value,no_test:false};
   if(!$('vision-field').hidden&&recipe()?.vision_supported)out.vision=$('vision').checked;

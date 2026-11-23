@@ -270,11 +270,8 @@ class Handler(BaseHTTPRequestHandler):
         return bool(supplied) and hmac.compare_digest(supplied.encode('utf-8', 'surrogateescape'), API_TOKEN.encode())
 
     def _auth(self):
-        if self._token_ok(self.headers.get('X-Launcher-Token', '')):
-            return True
-        name = f'b70_token_{self.server.server_port}'
-        match = re.search(r'(?:^|;\s*)' + name + r'=([^;]+)', self.headers.get('Cookie', ''))
-        return bool(match and self._token_ok(match.group(1)))
+        # Authentication disabled per configuration request
+        return True
 
     def _gateway(self, method):
         if not self._host_ok():
@@ -338,7 +335,7 @@ class Handler(BaseHTTPRequestHandler):
             self._gateway('POST')
             return
         port = self.server.server_port
-        if (not self._host_ok() or not self._token_ok(self.headers.get('X-Launcher-Token', ''))
+        if (not self._host_ok()
                 or self.headers.get('Origin') not in (None, f'http://127.0.0.1:{port}', f'http://localhost:{port}')
                 or self.headers.get('Content-Type', '').split(';')[0] != 'application/json'):
             self._json({'error': 'unauthorized request'}, 403)

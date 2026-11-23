@@ -28,7 +28,7 @@ UA = {"User-Agent": f"b70-launcher/{paths.VERSION}"}
 # settings-override keys a user edit may set (everything else ships read-only)
 OVERRIDE_KEYS = ("scan_dirs", "models_dir", "ovms_repo", "llama_bin", "vllm_venv",
                  "exl3_data_root", "strata_root", "strata_data", "xestrata_root",
-                 "open_with", "sync_clients",
+                 "open_with", "sync_clients", "use_hf_cli",
                  "pcie_links")
 
 # model-level fields a published recipe update may set (never "id"/"recipes")
