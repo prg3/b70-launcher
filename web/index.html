@@ -1731,7 +1731,9 @@ async function copy(text){if(navigator.clipboard?.writeText){try{await navigator
   document.body.append(input);input.select();const ok=document.execCommand('copy');input.remove();
   if(!ok)throw new Error('Copy unavailable. Select the displayed text and copy it.');toast('Copied');}
 function showFolders(download=false){const roots=S.state.settings.scan_dirs||[];
-  openDialog('Model folders',`<p class="hint">The scanner always includes your download folder. Add existing folders that contain your models.</p>
+  const hfCli = !!(S.state?.settings?.use_hf_cli);
+  const hint = hfCli ? 'Downloads use Hugging Face CLI. Scan roots are managed automatically.' : 'The scanner always includes your download folder. Add existing folders that contain your models.';
+  openDialog('Model folders',`<p class="hint">${hint}</p>
     <label for="folder-input">Model folders, one absolute path per line</label>
     <textarea id="folder-input">${esc(roots.join('\n'))}</textarea>
     <label for="download-folder">Download folder</label>
