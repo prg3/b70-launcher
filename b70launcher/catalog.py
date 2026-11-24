@@ -30,7 +30,6 @@ OVERRIDE_KEYS = ("scan_dirs", "models_dir", "ovms_repo", "llama_bin", "vllm_venv
                  "exl3_data_root", "strata_root", "strata_data", "strata_hy4_root", "xestrata_root",
                  "open_with", "sync_clients", "use_hf_cli",
                  "pcie_links")
-                 "pcie_links")
 
 # model-level fields a published recipe update may set (never "id"/"recipes")
 REMOTE_MODEL_FIELDS = ("recommended_engine", "recommendation", "badge", "blurb",
